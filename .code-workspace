@@ -2,7 +2,7 @@
     "folders": [
       { "path": "." },
       { "path": "./norma-robot-bridge" },
-      { "path": "./norma-input" }
+      { "path": "./norma-input" },
       { "path": "./norma-ui" }
     ],
     "settings": {
