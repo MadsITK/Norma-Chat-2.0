@@ -1,105 +1,82 @@
-# CLAUDE.md — Projektoversigt og retningslinjer for agenter
+# CLAUDE.md — Workspace-niveau (Norma-Chat-2.0)
 
-Dette dokument giver en kort, operationel introduktion til projektet, så både mennesker og AI‑agenter hurtigt kan forstå formål, arkitektur, drift, og vigtige hensyn ved videreudvikling.
+Dette er **workspace-meta-repoet** for Norma-Chat-2.0. Det versionerer kun limet — top-niveau dokumentation, dev-scripts, agent-konfiguration og en arkivkopi af den gamle kode. Den faktiske implementering bor i sub-repos der ligger i søstermapper (gitignored fra dette repo, hvert med sit eget `.git/`).
 
-## 1) Formål
-- Eksponere NAOqi‑funktionalitet (Pepper/NAO) via en lille HTTP‑service, så moderne apps (fx Python 3/FastAPI) kan interagere med robotten via et enkelt JSON‑API.
-- Bevare eksisterende funktionalitet fra tidligere script: TTS, gestures/animationer, tablet‑visning, intro‑billede ved opstart, og simpel gesture‑cykling.
+## Repo-oversigt
 
-## 2) Teknisk overblik
-- Sprog/runtime: Python 2.7 (krav fra NAOqi‑miljøet)
-- NAOqi: `ALProxy` til TTS (`ALTextToSpeech`), animationer (`ALAnimationPlayer`), og tablet (`ALTabletService`).
-- HTTP‑server: Python 2.7 `BaseHTTPServer` + `SocketServer.ThreadingMixIn` (threaded, port 8080).
-- Tråd‑sikkerhed: Alle robotkald går gennem en delt `NormaRobotService` beskyttet med `threading.RLock`.
-- API: 
-  - `GET /api/status`
-  - `POST /api/command` med JSON: `{ "command": "...", "params": { ... } }`
+| Mappe | Status | Python | Indhold |
+|---|---|---|---|
+| `Norma-Chat-2.0/` (her) | Workspace meta-repo (git-tracked) | n/a | Docs, scripts, `.claude/`, `norma-archive/` |
+| `Norma-Chat-2.0/norma-robot-bridge/` | Sub-repo (gitignored, eget `.git/`) | **2.7** | NAOqi HTTP-bridge — taler direkte med Pepper/NAO |
+| `Norma-Chat-2.0/norma-input/` | Sub-repo (gitignored, eget `.git/`) | **3.11+** | Mikrofon → STT → Emo Engine → bridge over HTTP |
+| `Norma-Chat-2.0/norma-ui/` | Sub-repo (gitignored, eget `.git/`) | **3.11+** | FastAPI + HTML/JS — control-panel og tablet-side |
+| `Norma-Chat-2.0/norma-archive/` | Læsbar reference | 2.7 + 3.11 | Den gamle monolitiske kode (`Norma_Output.py`, `Norma Input.py`) |
 
-## 3) Repo‑struktur (essentielt)
-- `Norma Output/Norma_Output.py` — Hovedservice (HTTP + `NormaRobotService`).
-- `README.md` — Kørevejledning, API‑eksempler, fejlfinding.
-- `NormaRobotService.md` — Tidligere designkrav/overblik (arkiv/koncept).
+Sub-repos er **ikke** git submodules. De klones manuelt via `scripts/clone-all.ps1`. Hvert sub-repo lever sit eget liv med egne branches og remotes.
 
-Bemærk mellemrummet i mappenavnet “Norma Output”. Bevar sti‑formateringen i scripts og dokumenter.
+## Hvor skal jeg redigere?
 
-## 4) Servicearkitektur og flow
-- Ved opstart initialiseres NAOqi‑proxies og et intro‑flow kører:
-  - Valgfri tablet‑intro (lokalt billede som data‑URI) + kort animation + velkomst‑TTS.
-- HTTP‑serveren starter på port 8080 og deler én `NormaRobotService` mellem tråde.
-- Indkomne kommandoer dispatches sikkert via lås, returnerer JSON `{status, data|message}`.
+**Før du redigerer kode i et sub-repo, læs sub-repoets egen `CLAUDE.md`** — den indeholder Python-version-specifikke regler, threading-mønstre osv. Workspace-niveauet ved kun "hvor tingene bor", ikke "hvordan koden skal skrives".
 
-## 5) API (kort)
-- GET `/api/status`
-  - Response: `{"status":"success","data":{"ip":"<ROBOT_IP>","port":9559,"interaction_count":N}}`
-- POST `/api/command`
-  - Body: `{"command":"<navn>","params":{...}}`
-  - Kommandoer:
-    - `say` — `{ "text": "Hej", "gesture": "hello" }` (gesture er valgfri)
-    - `play_gesture` — `{ "gesture_name": "bow" }` (eller `gesture`)
-    - `show_tablet_image` — `{ "image_path": "C:\\path\\to\\image.png" }`
-    - `show_tablet_html` — `{ "html": "<h1>Hej</h1>" }` (eller `html_content`)
-    - `hide_tablet` — `{}`
-    - `get_status` — `{}`
+| Vil du... | Gå til |
+|---|---|
+| Tilføje en HTTP-kommando til robotten | `norma-robot-bridge/` |
+| Ændre hvordan robot-laget kalder NAOqi | `norma-robot-bridge/` |
+| Ændre intro-flow / velkomst | `norma-robot-bridge/config/` |
+| Tilføje en LLM-provider | `norma-input/src/norma_input/llm/` |
+| Justere emotionel respons / gesture-mapping | `norma-input/src/norma_input/emo/` |
+| Ændre hvordan brugerinput optages | `norma-input/src/norma_input/audio/` |
+| Ændre system-prompten | `norma-input/prompts/` |
+| Ændre hvad der vises på Norma's tablet | `norma-ui/` |
+| Tilføje en knap/kommando til operatør-UI | `norma-ui/` |
+| Læse den gamle kode for kontekst | `norma-archive/` (read-only) |
 
-## 6) Konfiguration
-- Redigér i toppen af `Norma Output/Norma_Output.py`:
-  - `ROBOT_IP` (robot‑IP; kan læses op på robotten)
-  - `ROBOT_PORT` (typisk 9559)
-  - `LOCAL_IMAGE_PATH` (valgfri sti til introbillede vist på tablet)
-- Server binder til `('', 8080)` → alle interfaces.
+## Python-versioner — vigtigt
 
-## 7) Kørsel
-- Kør i Python 2.7‑miljø med NAOqi tilgængelig.
-- Windows:
-  ```bat
-  python "Norma Output\Norma_Output.py"
-  ```
-- Linux/macOS:
-  ```bash
-  python2 "Norma Output/Norma_Output.py"
-  ```
-- Forventet log: `Norma HTTP service lytter på port 8080 ...`
+`norma-robot-bridge` er **låst til Python 2.7** fordi NAOqi-SDK'et kræver det. Det betyder ingen f-strings, ingen `pathlib`, ingen `typing`-annotationer, ingen `dataclasses`. Sub-repoets `CLAUDE.md` har detaljerne. Bekræft kompatibilitet før commit:
+```bash
+python2 -m py_compile norma-robot-bridge/src/norma_bridge/**/*.py
+```
 
-## 8) Vigtige hensyn (for fremtidige ændringer)
-- Python 2.7‑kompatibilitet: Brug `from __future__ import print_function`, undgå Python 3‑only features. Unicode‑håndtering er eksplicit i koden (`_ensure_unicode`, UTF‑8 bytes til TTS).
-- Tråd‑sikkerhed: Bevar/lås al robot‑I/O via `RLock`. Nye metoder i `NormaRobotService` skal følge samme mønster.
-- NAOqi‑afhængighed: Import af `ALProxy` kan fejle udenfor robotmiljø. Koden udsætter fejl til runtime; bevar denne adfærd for bedre DX.
-- Tablet‑visning: Bruger data‑URI (base64). Store billeder/HTML kan blive tunge; overvej størrelser/komprimering.
-- Gestures: `_cycle_gesture_name()` kører hver anden interaktion. Hvis du ændrer logik eller `GESTURES`, dokumentér ændringen.
-- Port og binding: Standard 8080. Hvis du ændrer port, opdater `README.md` og alle integrationseksempler.
-- Publik API‑stabilitet: Undgå breaking changes i `POST /api/command` format. Tilføj hellere nye kommandoer fremfor at ændre eksisterende parametre.
+`norma-input` er **Python 3.11+**. Type hints er forventet, f-strings velkomne.
 
-## 9) Sikkerhed og netværk
-- Default er ingen auth/SSL (lokalt/lukket net). Hvis eksponeret bredt, tilføj mindst IP‑whitelisting eller en simpel token.
-- Sørg for firewall‑regel for indgående TCP 8080 på værtsmaskinen, hvis klienter er på andre maskiner.
-- Kode binder til alle interfaces; drift i delt miljø bør overveje binding til specifik IP eller reverse proxy.
+Når Claude Code arbejder fra workspace-roden er der **ingen** aktiv Python-runtime — opgaver der involverer kørsel skal udføres i den relevante sub-repos venv.
 
-## 10) Fejlfinding (kort)
-- Virker lokalt men ikke eksternt: sandsynligvis firewall. Åbn 8080/tcp (se README “Fejlfinding”).
-- NAOqi importfejl: Installer/aktiver NAOqi i Python 2.7‑miljø.
-- Tablet viser intet: Tjek sti/fil og at webview ikke blokeres.
-- Encoding: Send altid JSON som UTF‑8; vær opmærksom på æ/ø/å.
+## Kommunikation mellem komponenter
 
-## 11) Udvidelse (vejledning til agenter)
-- Tilføj ny robotfunktion:
-  1. Implementér ny metode i `NormaRobotService` med `with self._lock:` og robust fejlbehandling.
-  2. Tilføj tilsvarende gren i `ApiHandler._dispatch()` for `command`‑navnet.
-  3. Opdater `README.md` (API‑reference + eksempler).
-  4. Overvej tidsouts og fejlmeddelelser der er konsistente med eksisterende `{status:"error", message}`.
-- Bevar Python 2.7‑kompatibilitet (ingen f‑strings, ingen `pathlib`, osv.).
-- Logning holdes enkel (stdout). Støj må ikke blokere I/O.
+```
+┌──────────┐  HTTP   ┌────────────┐  HTTP /api/command  ┌──────────────────────┐
+│ norma-ui │────────►│ norma-input│───────────────────────►│ norma-robot-bridge   │
+│ (Py3.11) │         │  (Py3.11)  │                        │ (Py 2.7 + NAOqi)     │
+│ FastAPI  │◄────────│ Emo Engine │◄───────────────────────│ ALProxy → Pepper/NAO │
+│ + HTML/JS│         │ Pipeline   │   JSON-svar            └──────────────────────┘
+└──────────┘         └────────────┘                                  ▲
+      ▲                                                              │
+      │  Norma-tabletten åbner UI-URL via show_tablet_url-kommando   │
+      └──────────────────────────────────────────────────────────────┘
+```
 
-## 12) Kendte begrænsninger
-- Ingen persistens/metrics; kun simpel status (`interaction_count`).
-- Ingen auth/SSL; forudsætter kontrolleret netværksmiljø.
-- Ingen officielle tests pga. NAOqi runtime‑afhængighed.
+API-kontrakten ejes af bridge'en. Spec'en ligger på `norma-robot-bridge/api-spec/openapi.yaml`. Klient-siden i `norma-input` skal holde sig synkroniseret med den. `norma-ui` taler primært med `norma-input` (start/stop loop, send tekst), og kun indirekte med bridge'en.
 
-## 13) “Før PR merge”‑tjekliste
-- [ ] Koden kører i Python 2.7 uden syntaksfejl.
-- [ ] NAOqi‑kald er beskyttet af lås og har fejlhåndtering.
-- [ ] API‑ændringer dokumenteret i `README.md`.
-- [ ] Port/konfiguration i kode og docs stemmer overens.
-- [ ] Hurtig manuelle tests: `GET /api/status`, `POST /api/command` (mindst `say`).
+## Workspace-indhold
 
-## 14) Changelog (kort format)
-- v1: HTTP‑service på port 8080, `NormaRobotService`, trådet server, intro‑billede/velkomst, grundlæggende API.
+- `README.md` — onboarding for nye udviklere (klon alle repos, sæt venvs op)
+- `CLAUDE.md` — denne fil
+- `.claude/settings.json` — tilladelser så Claude Code kan læse på tværs af sub-mapper
+- `.claude/pointers.md` — hurtig agent-orientering
+- `docs/architecture.md` — tværgående arkitektur og sekvensdiagrammer
+- `scripts/clone-all.ps1` — kloner alle sub-repos
+- `scripts/dev-up.ps1` — starter fake-bridge + input lokalt
+- `norma-archive/` — den gamle monolitiske kode bevaret som reference
+
+## Plan-filen
+
+Den oprindelige refaktoreringsplan ligger på `C:\Users\az77820\.claude\plans\vi-er-i-gang-clever-thunder.md`. Den beskriver målarkitekturen og migrationsfaserne.
+
+## Vigtige principper når du arbejder her
+
+- **Aldrig redigér i `norma-archive/`** — det er en frosset reference.
+- **Ingen Py 2.7-kode i `norma-input/` eller `norma-ui/`, ingen Py 3-kode i `norma-robot-bridge/`** — to runtimes, to verdener.
+- **API-kontraktændringer kræver opdatering af `openapi.yaml` i samme PR**.
+- **Bridge må ikke afhænge af noget i input- eller ui-repoet og omvendt** — de kommunikerer kun over HTTP.
+- **Hukommelse er bevidst ikke designet endnu** — den defineres efter et grundlæggende LLM-flow er oppe at køre. Implementér ikke spekulativt persistens.

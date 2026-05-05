@@ -361,3 +361,21 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# --- Workspace-specific ---
+# Sub-repos klones som søsterklones inde i workspace; de er separate git-repos
+# og må ikke blive trackede af workspace-repoet. Se README.md og scripts/clone-all.ps1.
+/norma-robot-bridge/
+/norma-input/
+
+# Lokale venvs
+.venv/
+.venv27/
+venv/
+
+# IDE
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store

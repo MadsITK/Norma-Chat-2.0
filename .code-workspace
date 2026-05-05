@@ -1,0 +1,12 @@
+{
+    "folders": [
+      { "path": "." },
+      { "path": "./norma-robot-bridge" },
+      { "path": "./sub-b" }
+    ],
+    "settings": {
+      "git.enableSmartCommit": false,
+      "git.suggestSmartCommit": false,
+      "git.confirmSync": true
+    }
+  }

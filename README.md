@@ -1,175 +1,125 @@
-# Norma Robot HTTP Service (Python 2.7 / NAOqi)
+# Norma-Chat-2.0 — Workspace
 
-Denne repository indeholder en lille HTTP‑service, der kører direkte på Norma (Pepper/NAO) eller på en maskine med adgang til robotten via NAOqi. Servicen omslutter robotfunktioner (TTS, animationer/gestures, tablet‑visning) og eksponerer dem via et enkelt JSON‑baseret API på port 8080. Den kan dermed kaldes fra moderne Python 3.11 apps (f.eks. FastAPI) eller fra ethvert system, der kan lave HTTP‑kald.
+Dette repo er **workspace-meta-repoet** for Norma-projektet. Det versionerer kun limet (top-niveau dokumentation, dev-scripts, agent-konfiguration). Den faktiske implementering bor i tre selvstændige sub-repos der lever side om side i denne mappe.
 
-## Indhold
-- Hvad du får
-- Forudsætninger
-- Installation og konfiguration
-- Kørsel (Windows/Linux)
-- API reference og eksempler
-- Hurtig integration fra Python 3 (FastAPI/requests)
-- Fejlfinding og tips
+## Arkitektur i én figur
 
-## Hvad du får
-- `Norma Output/Norma_Output.py` — Python 2.7 HTTP‑service med:
-  - Thread‑safe `NormaRobotService` klasse
-    - `say(text, gesture=None)`
-    - `play_gesture(gesture_name)`
-    - `show_tablet_image(image_path)`
-    - `show_tablet_html(html_content)`
-    - `hide_tablet()`
-    - `get_status()`
-  - Trådet HTTP‑server på port 8080 med endpoints:
-    - `POST /api/command` (udfører en af ovenstående metoder)
-    - `GET  /api/status` (returnerer status)
-- `NormaRobotService.md` — designnoter (tidligere krav/overblik)
-
-## Forudsætninger
-- Python 2.7 miljø på den maskine, der skal tale med robotten.
-- NAOqi SDK og runtime tilgængelig (så `from naoqi import ALProxy` virker).
-- Netværksforbindelse til robotten (IP og port 9559 som standard).
-- Adgang til port 8080 på værtsmaskinen (firewall skal tillade indgående trafik, hvis du kalder fra en anden maskine).
-
-## Installation og konfiguration
-1. Klon eller kopier projektet til den maskine, der skal køre servicen.
-2. Åbn filen `Norma Output/Norma_Output.py` og sæt følgende konstanter i toppen:
-   - `ROBOT_IP` — robotens IP (tryk på Norma’s maveknap for at høre IP’en).
-   - `ROBOT_PORT` — typisk `9559`.
-   - `LOCAL_IMAGE_PATH` — valgfrit. Sti til et lokalt PNG/JPG intro‑billede der vises på tablet ved opstart. Tom streng betyder “ingen intro”.
-3. (Valgfrit) Verificér NAOqi virker ved at køre en simpel Python 2.7 REPL og importere `naoqi`:
-   ```python
-   >>> from naoqi import ALProxy
-   ```
-
-## Kørsel
-Kør altid med Python 2.7.
-
-- Windows (PowerShell eller cmd):
-  ```bat
-  cd "C:\dev\Norma-Chat-2.0"
-  python "Norma Output\Norma_Output.py"
-  ```
-
-- Linux/macOS:
-  ```bash
-  cd /path/to/Norma-Chat-2.0
-  python2 "Norma Output/Norma_Output.py"
-  ```
-
-Hvis alt er korrekt, ser du en besked á la:
 ```
-Norma HTTP service lytter på port 8080 ...
-```
-Samtidig kører en kort animation, og (hvis sat) vises intro‑billedet på tablet. Norma siger en velkomstsætning.
-
-Servicen kører i forgrunden. Brug Ctrl+C for at stoppe den. Ønsker du at køre den som service/daemon, anvend dit OS’ standardmekanismer (systemd, NSSM, Task Scheduler el.lign.).
-
-## API reference
-Base‑URL: `http://<host>:8080`
-
-- GET `/api/status`
-  - Response:
-    ```json
-    {"status":"success","data":{"ip":"<ROBOT_IP>","port":9559,"interaction_count":N}}
-    ```
-
-- POST `/api/command`
-  - Body (JSON):
-    ```json
-    {"command":"<navn>","params":{...}}
-    ```
-  - Mulige kommandoer:
-    - `say` — sig noget (valgfrit gesture)
-      - Params: `{ "text": "Hej", "gesture": "hello" }`
-    - `play_gesture` — afspil specifik gesture
-      - Params: `{ "gesture_name": "bow" }` (eller `gesture`)
-    - `show_tablet_image` — vis lokalt billede på tablet
-      - Params: `{ "image_path": "C:\\path\\to\\image.png" }`
-    - `show_tablet_html` — vis HTML på tablet
-      - Params: `{ "html": "<h1>Hej</h1>" }` (eller `html_content`)
-    - `hide_tablet` — skjul tablet
-      - Params: `{}`
-    - `get_status` — returnér status (samme som GET /api/status)
-      - Params: `{}`
-  - Generel respons:
-    ```json
-    {"status":"success","data":{...}}
-    ```
-    eller ved fejl
-    ```json
-    {"status":"error","message":"..."}
-    ```
-
-## Eksempler (curl)
-- Say med gesture:
-  ```bash
-  curl -X POST http://<host>:8080/api/command \
-       -H "Content-Type: application/json" \
-       -d '{"command":"say","params":{"text":"Hej","gesture":"hello"}}'
-  ```
-- Afspil gesture:
-  ```bash
-  curl -X POST http://<host>:8080/api/command \
-       -H "Content-Type: application/json" \
-       -d '{"command":"play_gesture","params":{"gesture_name":"bow"}}'
-  ```
-- Vis billede på tablet:
-  ```bash
-  curl -X POST http://<host>:8080/api/command \
-       -H "Content-Type: application/json" \
-       -d '{"command":"show_tablet_image","params":{"image_path":"C:\\path\\to\\image.png"}}'
-  ```
-- Vis HTML på tablet:
-  ```bash
-  curl -X POST http://<host>:8080/api/command \
-       -H "Content-Type: application/json" \
-       -d '{"command":"show_tablet_html","params":{"html":"<h1>Hej</h1>"}}'
-  ```
-- Skjul tablet:
-  ```bash
-  curl -X POST http://<host>:8080/api/command \
-       -H "Content-Type: application/json" \
-       -d '{"command":"hide_tablet"}'
-  ```
-- Status:
-  ```bash
-  curl http://<host>:8080/api/status
-  ```
-
-## Hurtig integration fra Python 3
-Eksempel på at kalde servicen fra Python 3.11 (f.eks. i en FastAPI‑app), via `requests`:
-```python
-import requests
-
-BASE = "http://<host>:8080"
-
-# Sig noget
-r = requests.post(f"{BASE}/api/command", json={
-    "command": "say",
-    "params": {"text": "Hej fra FastAPI", "gesture": "hello"}
-})
-print(r.json())
-
-# Vis HTML
-requests.post(f"{BASE}/api/command", json={
-    "command": "show_tablet_html",
-    "params": {"html": "<h2>Hej Norma</h2>"}
-})
-
-# Hent status
-print(requests.get(f"{BASE}/api/status").json())
+┌──────────┐ HTTP  ┌────────────────────────┐ HTTP  ┌────────────────────────┐
+│ norma-ui │──────►│ norma-input            │──────►│ norma-robot-bridge     │
+│ (Py3.11) │       │ (Py3.11)               │       │ (Py 2.7 + NAOqi)       │
+│ FastAPI  │◄──────│ mic ─► STT ─► Emo ─────┘       │ ALProxy ─► Pepper/NAO  │
+│ + HTML/JS│       │       Engine                   └────────────────────────┘
+└──────────┘       └────────────────────────┘                  ▲
+      ▲                                                        │
+      │  Norma's tablet åbner UI-URL via show_tablet_url       │
+      └────────────────────────────────────────────────────────┘
 ```
 
-Hvis du vil indkapsle dette i en FastAPI‑route, så lav en endpoint der videresender JSON uændret til servicen.
+- **`norma-robot-bridge`** kører tæt på robotten (Py 2.7 fordi NAOqi kræver det) og eksponerer en JSON-API på port 8080.
+- **`norma-input`** kører på en operatør-maskine med mikrofon, optager tale, transkriberer den, lader Emo Engine generere et emotionelt afstemt svar (tekst + gesture), og taler med robotten over HTTP.
+- **`norma-ui`** kører på samme maskine som input. Det er dels operatørens kontrolpanel, dels den side Norma's tablet selv åbner. Det starter/stopper lytteloop, sender statisk tekst, og viser samtalevindue.
+- Alle tre har **separate git-historier** og adskilte release-cyklusser.
 
-## Fejlfinding og tips
-- Importfejl: "NAOqi ALProxy ikke tilgængelig" — Sørg for at NAOqi SDK er installeret og tilgængeligt i Python 2.7‑miljøet.
-- Forbindelse nægtes til robot: Tjek `ROBOT_IP`/`ROBOT_PORT`, samt at du kan ping’e robotten fra værtsmaskinen.
-- Port 8080 utilgængelig: Luk anden service på porten, eller skift port i `Norma_Output.py` (server_address i `run_server`). Husk firewall‑regler.
-- Tablet viser intet billede: Tjek sti i `LOCAL_IMAGE_PATH` eller i `show_tablet_image`‑kaldet. Filen skal eksistere på værtsmaskinen hvor servicen kører.
-- Encoding/æøå: Koden håndterer UTF‑8; send JSON som UTF‑8. I Python 3 sender `requests` korrekt UTF‑8 som standard.
-- Samtidige kald: Serveren er trådet og alle robotkald er beskyttet med en re‑entrant lock.
+Den oprindelige monolit (`Norma_Output.py` + `Norma Input.py`) ligger frosset i `norma-archive/` som læsbar reference.
+
+## Mappestruktur
+
+```
+Norma-Chat-2.0/                          ← du er her (git-tracked workspace)
+├── README.md                             ← denne fil
+├── CLAUDE.md                             ← agent-kontekst på workspace-niveau
+├── .claude/                              ← Claude Code-konfig (cross-repo læseadgang)
+├── docs/                                 ← arkitektur, API-kontrakt, sekvensdiagrammer
+├── scripts/                              ← clone-all, dev-up
+├── norma-archive/                        ← gammel kode, frosset reference
+├── norma-robot-bridge/  (gitignored)     ← klones via scripts/clone-all.ps1
+├── norma-input/         (gitignored)     ← klones via scripts/clone-all.ps1
+└── norma-ui/            (gitignored)     ← klones via scripts/clone-all.ps1
+```
+
+## Kom i gang
+
+### 1. Klon workspace
+```powershell
+git clone <workspace-remote> Norma-Chat-2.0
+cd Norma-Chat-2.0
+```
+
+### 2. Klon sub-repos ind ved siden af
+```powershell
+.\scripts\clone-all.ps1
+```
+
+Når sub-repos er publiceret, kloner scriptet dem ind i `norma-robot-bridge/` og `norma-input/`. Indtil da skal de oprettes manuelt — se de migrations-noter der følger med planfilen i `.claude/plans/`.
+
+### 3. Sæt venvs op (én pr. sub-repo)
+
+**Bridge (Python 2.7):**
+
+Med en almindelig Python 2.7-installation:
+```powershell
+cd norma-robot-bridge
+py -2 -m virtualenv .venv27   # eller python2 -m virtualenv .venv27
+.\.venv27\Scripts\Activate.ps1
+pip install -e ".[test]"
+```
+
+Hvis du bruger NAOqi-SDK'ets bundlede Python 2.7 (fx `C:\tools\python27-nao\`), har den et usædvanligt layout. Sæt `PYTHONHOME` **inline pr. kommando** under bootstrap — aldrig som `export` eller `$env:`, da det vil bryde Python 3 i samme shell-session. Se [norma-robot-bridge/README.md](norma-robot-bridge/README.md) for de præcise kommandoer.
+
+**Input (Python 3.11+):**
+```powershell
+cd norma-input
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .
+```
+
+**UI (Python 3.11+):**
+```powershell
+cd norma-ui
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .
+```
+
+### 4. Kør lokalt
+```powershell
+.\scripts\dev-up.ps1
+```
+Starter bridge i `--fake`-mode (ingen ægte robot påkrævet), en input-process, og UI-serveren — alle som separate vinduer der kan stoppes individuelt.
+
+## Hvilket repo skal jeg åbne?
+
+| Hvis du vil... | Åbn |
+|---|---|
+| Tilføje en HTTP-kommando til robotten | `norma-robot-bridge/` |
+| Refaktorere robot-laget eller intro-flow | `norma-robot-bridge/` |
+| Tilføje en LLM-provider (Claude, OpenAI) | `norma-input/` |
+| Justere emotionel respons / gesture-mapping | `norma-input/` (Emo Engine) |
+| Ændre hvordan brugerinput optages | `norma-input/` |
+| Ændre system-prompten til samtaler | `norma-input/prompts/` |
+| Ændre hvad der vises på Norma's tablet | `norma-ui/` |
+| Tilføje en knap eller kommando til operatør-UI'et | `norma-ui/` |
+| Læse hvordan tingene plejede at være | `norma-archive/` (read-only) |
+
+Hvert sub-repo har sin egen `README.md` og `CLAUDE.md` med detaljer der er specifikke for dets Python-version og scope.
+
+## API-kontrakt
+
+Bridge'en ejer API-spec'en. Den ligger på `norma-robot-bridge/api-spec/openapi.yaml`. `norma-input` er forbruger og skal holdes synkroniseret. Se `docs/api-contract.md` for detaljer om versionering og kontrakttests.
+
+## Hvorfor multi-repo?
+
+To grunde:
+
+1. **Inkompatible Python-runtimes**. Bridge er låst til 2.7 (NAOqi). Input og UI bruger 3.11 (moderne LLM-SDK'er, FastAPI, type hints). Et monorepo ville tvinge koordineret dependency-management på tværs af to runtimes der ikke deler en pakkemanager — ren smerte.
+2. **Forskelligt deployment-mål**. Bridge kører på/ved robotten. Input + UI kører på en operatør-maskine med mikrofon. Forskellige hardware, forskellige opdateringscyklusser.
+
+Hvorfor input og UI så ikke er ét repo: forskellig teknologistak (audio + LLM vs. FastAPI + HTML/JS) og forskellige iterationsrytmer. Begge bor på samme maskine, men leves uafhængigt.
+
+Vi bruger **ikke** git submodules — sub-repos klones som løse søsterklones via `scripts/clone-all.ps1`. Det er nemmere at arbejde med dagligt, og workspace-repoet behøver ikke at "pinne" sub-repo-versioner.
 
 ## Licens
+
 Internt projekt. Del eller licensér efter organisationens retningslinjer.
