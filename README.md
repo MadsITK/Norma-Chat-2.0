@@ -57,15 +57,19 @@ Når sub-repos er publiceret, kloner scriptet dem ind i `norma-robot-bridge/` og
 
 **Bridge (Python 2.7):**
 
-Med en almindelig Python 2.7-installation:
-```powershell
+Bridge'en har sit eget setup-script der håndterer venv, `pip install -e ".[test]"`, NAOqi-SDK-stien og en `activate-with-naoqi.{sh,bat}`-helper. Se [norma-robot-bridge/scripts/README.md](norma-robot-bridge/scripts/README.md) for forudsætninger (Python 2.7-install, NAOqi-SDK-download) og fuldt kald.
+
+```bash
+# Linux
 cd norma-robot-bridge
-py -2 -m virtualenv .venv27   # eller python2 -m virtualenv .venv27
-.\.venv27\Scripts\Activate.ps1
-pip install -e ".[test]"
+./scripts/setup-linux.sh --naoqi-sdk /opt/aldebaran/pynaoqi-python2.7-2.5.5.5-linux64
 ```
 
-Hvis du bruger NAOqi-SDK'ets bundlede Python 2.7 (fx `C:\tools\python27-nao\`), har den et usædvanligt layout. Sæt `PYTHONHOME` **inline pr. kommando** under bootstrap — aldrig som `export` eller `$env:`, da det vil bryde Python 3 i samme shell-session. Se [norma-robot-bridge/README.md](norma-robot-bridge/README.md) for de præcise kommandoer.
+```cmd
+REM Windows cmd
+cd norma-robot-bridge
+scripts\setup-windows.bat C:\tools\pynaoqi
+```
 
 **Input (Python 3.11+):**
 ```powershell
